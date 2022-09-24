@@ -40,6 +40,8 @@ export AbstractSparseArray, AbstractSparseMatrix, AbstractSparseVector,
 @inline _isnotzero(x::Number) = !iszero(x)
 @inline _isnotzero(x::AbstractArray) = !iszero(x)
 
+AdjQType = isdefined(LinearAlgebra, :AdjointQ) ? LinearAlgebra.AdjointQ : Adjoint
+    
 include("abstractsparse.jl")
 include("sparsematrix.jl")
 include("sparseconvert.jl")

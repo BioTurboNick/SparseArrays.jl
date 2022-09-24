@@ -652,7 +652,8 @@ end
     @test ((_, x) -> x).(Int, spzeros(3)) == spzeros(3)
     @test ((_, _, x) -> x).(Int, Int, spzeros(3)) == spzeros(3)
     @test ((_, _, _, x) -> x).(Int, Int, Int, spzeros(3)) == spzeros(3)
-    @test_broken ((_, _, _, _, x) -> x).(Int, Int, Int, Int, spzeros(3)) == spzeros(3)
+    @test ((_, _, _, _, x) -> x).(Int, Int, Int, Int, spzeros(3)) == spzeros(3)
+    @test_broken typeof(((_, _, _, _, x) -> x).(Int, Int, Int, Int, spzeros(3))) == typeof(spzeros(3))
 end
 
 using SparseArrays.HigherOrderFns: SparseVecStyle, SparseMatStyle
@@ -766,6 +767,13 @@ end
     A[2] = 1
     A[2] = 0
     @test A * C == B * C == spzeros(Int, 4, 6)
+end
+
+@testset "issue #46337 - error in sparsevec map" begin
+    x = sparsevec([1], [1//1+0im])
+    @test inv.(x) == [1//1+0im]
+    y = spzeros(Int, 1)
+    @test y ./ x == y
 end
 
 end # module

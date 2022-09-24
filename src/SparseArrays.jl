@@ -11,6 +11,9 @@ using Base.Sort: Forward
 using LinearAlgebra
 using LinearAlgebra: AdjOrTrans, matprod
 
+# Temporary workaround for simplifying SparseArrays.jl upgrade in JuliaLang/julia
+# to workaround circshift! bug, see https://github.com/JuliaLang/julia/pull/46759
+const CIRCSHIFT_WRONG_DIRECTION = circshift!([1, 2, 3], 1) != circshift([1, 2, 3], 1)
 
 
 import Base: +, -, *, \, /, &, |, xor, ==, zero
@@ -33,15 +36,29 @@ export AbstractSparseArray, AbstractSparseMatrix, AbstractSparseVector,
     sparse_hcat, sparse_vcat, sparse_hvcat
 
 # helper function needed in sparsematrix, sparsevector and higherorderfns
-@inline _iszero(x) = x == 0
+# `iszero` and `!iszero` don't guarantee to return a boolean but we need one that does
+# to remove the handle the structure of the array.
+@inline _iszero(x) = iszero(x) === true
 @inline _iszero(x::Number) = Base.iszero(x)
 @inline _iszero(x::AbstractArray) = Base.iszero(x)
-@inline _isnotzero(x) = (x != 0) !== false # like `x != 0`, but handles `x::Missing`
+@inline _isnotzero(x) = iszero(x) !== true # like `!iszero(x)`, but handles `x::Missing`
 @inline _isnotzero(x::Number) = !iszero(x)
 @inline _isnotzero(x::AbstractArray) = !iszero(x)
 
 AdjQType = isdefined(LinearAlgebra, :AdjointQ) ? LinearAlgebra.AdjointQ : Adjoint
     
+## Functions to switch to 0-based indexing to call external sparse solvers
+
+# Convert from 1-based to 0-based indices
+function decrement!(A::AbstractArray{T}) where T<:Integer
+    for i in eachindex(A); A[i] -= oneunit(T) end
+    A
+end
+decrement(A::AbstractArray) = let y = Array(A)
+    y .= y .- oneunit(eltype(A))
+end
+
+include("readonly.jl")
 include("abstractsparse.jl")
 include("sparsematrix.jl")
 include("sparseconvert.jl")
@@ -50,14 +67,7 @@ include("higherorderfns.jl")
 include("linalg.jl")
 include("deprecated.jl")
 
-## Functions to switch to 0-based indexing to call external sparse solvers
 
-# Convert from 1-based to 0-based indices
-function decrement!(A::AbstractArray{T}) where T<:Integer
-    for i in eachindex(A); A[i] -= oneunit(T) end
-    A
-end
-decrement(A::AbstractArray{<:Integer}) = decrement!(copy(A))
 
 # Convert from 0-based to 1-based indices
 function increment!(A::AbstractArray{T}) where T<:Integer
